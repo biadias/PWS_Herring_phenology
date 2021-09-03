@@ -1,0 +1,856 @@
+---
+title: Influence of environmental and population factors on Prince William Sound spawning phenology.
+author: "Bia Dias"
+date: "1/5/2021"
+output:
+  pdf_document: default
+  word_document: default
+  html_document:
+    df_print: paged
+csl: C:/Users/Beatriz/Dropbox/A_UW/Herring/PWS_herring/Citations/canadian-journal-of-fisheries-and-aquatic-sciences.csl
+always_allow_html: yes
+bibliography: C:/Users/Beatriz/Dropbox/A_UW/Herring/PWS_herring/Citations/PWS_refs_v1.bib
+---
+AUTHORS: Dias, B.S., McGowan, D., Campbell, R., Branch, T.
+
+AFFILIATIONS: School of Aquatic and Fishery Sciences, University of Washington
+
+E-MAIL OF CORRESPONDENCE AUTHOR: biadias@uw.edu
+
+## Packages
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(formatR)
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),
+                      width=60,tidy=TRUE)
+
+library(tidyverse)
+library(mgcv)
+library(gamm4)
+library(gratia)
+library(here)
+library(lubridate)
+library(lattice) 
+library(fitdistrplus)
+library(PerformanceAnalytics)
+library(olsrr)
+library(MASS)
+library(AICcmodavg)
+library(MuMIn)
+library(visreg)
+library(kableExtra)
+library(equatiomatic)
+library(pander)
+library(relaimpo)
+```
+
+
+```{r functions, include=FALSE}
+
+Mydotplot <- function(DataSelected){
+  
+  P <- dotplot(as.matrix(as.matrix(DataSelected)),
+               groups=FALSE,
+               strip = strip.custom(bg = 'white',
+                                    par.strip.text = list(cex = 1.2)),
+               scales = list(x = list(relation = "free", draw = TRUE),
+                             y = list(relation = "free", draw = FALSE)),
+               col=1, cex  = 0.5, pch = 16,
+               xlab = list(label = "Value of the variable", cex = 1.5),
+               ylab = list(label = "Order of the data from text file", cex = 1.5))
+  
+  print(P)  
+}
+
+
+
+Dsquared <- function(model = NULL, 
+                     obs = NULL, 
+                     pred = NULL, 
+                     family = NULL, # needed only when 'model' not provided
+                     adjust = FALSE, 
+                     npar = NULL) { # needed only when 'model' not provided
+  # version 1.4 (31 Aug 2015)
+ 
+  model.provided <- ifelse(is.null(model), FALSE, TRUE)
+ 
+  if (model.provided) {
+    if (!("glm" %in% class(model))) stop ("'model' must be of class 'glm'.")
+    if (!is.null(pred)) message("Argument 'pred' ignored in favour of 'model'.")
+    if (!is.null(obs)) message("Argument 'obs' ignored in favour of 'model'.")
+    obs <- model$y
+    pred <- model$fitted.values
+ 
+  } else { # if model not provided
+    if (is.null(obs) | is.null(pred)) stop ("You must provide either 'obs' and 'pred', or a 'model' object of class 'glm'.")
+    if (length(obs) != length(pred)) stop ("'obs' and 'pred' must be of the same length (and in the same order).")
+    if (is.null(family)) stop ("With 'obs' and 'pred' arguments (rather than a model object), you must also specify one of two model family options: 'binomial' or 'poisson' (in quotes).")
+    else if (!is.character(family)) stop ("Argument 'family' must be provided as character (i.e. in quotes: 'binomial' or 'poisson').")
+    else if (length(family) != 1 | !(family %in% c("binomial", "poisson"))) stop ("'family' must be either 'binomial' or 'poisson' (in quotes).")
+ 
+    if (family == "binomial") {
+      if (any(!(obs %in% c(0, 1)) | pred < 0 | pred > 1)) stop ("'binomial' family implies that 'obs' data should be binary (with values 0 or 1) and 'pred' data should be bounded between 0 and 1.")
+      link <- log(pred / (1 - pred))  # logit
+    }  # end if binomial
+ 
+    else if (family == "poisson") {
+      if (any(obs %%1 != 0)) stop ("'poisson' family implies that 'obs' data should consist of whole numbers.")
+      link <- log(pred)
+    }  # end if poisson
+ 
+    model <- glm(obs ~ link, family = family)
+  }  # end if model not provided
+ 
+  D2 <- (model$null.deviance - model$deviance) / model$null.deviance
+ 
+  if (adjust) {
+    if (model.provided) {
+      n <- length(model$y)
+      #p <- length(model$coefficients)
+      p <- attributes(logLik(model))$df
+    } else {
+      if (is.null(npar)) stop ("Adjusted D-squared from 'obs' and 'pred' values (rather than a model object) requires specifying the number of parameters in the underlying model ('npar').")
+      n <- length(na.omit(obs))
+      p <- npar
+    }  # end if model.provided else
+ 
+    D2 <- 1 - ((n - 1) / (n - p)) * (1 - D2)
+  }  # end if adjust
+ 
+  return (D2)
+}
+
+# Guisan, A. & Zimmermann, N.E. (2000) Predictive habitat distribution models in ecology. Ecological Modelling 135: 147-186
+
+```
+
+## Models
+
+### PWS model results #####
+
+```{r fullModel}
+
+PWSdata <- read.csv("DATA_v2/fulldata.csv")
+
+glm_list_full <- list(
+glm_full <-  glm(DOY_cum50~ SSB+Mean_age+ ICOADS.SST.apr.wmean + Upwell.wi+
+                   NCEP.MerWind.fa+ a.PNA.su, data=PWSdata), #1
+
+glm_full_a <-  glm(DOY_cum50~ Mean_age+ ICOADS.SST.apr.wmean + Upwell.wi+
+                     NCEP.MerWind.fa+ a.PNA.su, data=PWSdata), #2 #best model
+
+glm_full_b<-  glm(DOY_cum50~ Mean_age+ ICOADS.SST.apr.wmean + Upwell.wi+ 
+                    a.PNA.su, data=PWSdata), #3
+glm_full_c<-  glm(DOY_cum50~ ICOADS.SST.apr.wmean + Upwell.wi+ a.PNA.su, 
+                  data=PWSdata),#4
+glm_full_d<-  glm(DOY_cum50~ SSB, data=PWSdata),#5
+glm_full_e<-  glm(DOY_cum50~ Mean_age, data=PWSdata), #6
+glm_full_f<-  glm(DOY_cum50~ ICOADS.SST.apr.wmean, data=PWSdata), #7
+glm_full_g<-  glm(DOY_cum50~ Upwell.wi, data=PWSdata),#8
+glm_full_h<-  glm(DOY_cum50~ a.PNA.su, data=PWSdata),#9
+glm_full_i <-  glm(DOY_cum50~ Mean_age+ ICOADS.SST.mar.wmean + Upwell.wi+
+                     NCEP.MerWind.fa+ a.PNA.su, data=PWSdata)) #10
+
+
+aictab(glm_list_full)
+
+
+fullAICc <- aictab(glm_list_full, modnames = c("~SSB + mean age + April SST + winter downwelling+
+                   Fall meridional winds+ Summer PNA", 
+                   "~mean age + April SST + winter downwelling+
+                   Fall meridional winds+ Summer PNA", 
+                   "~mean age + April SST + winter downwelling+Summer PNA",
+                   "~April SST + winter downwelling + Summer PNA",
+                   "~SSB",
+                   "~mean age",
+                   "~April SST",
+                   "winter downwelling",
+                   "Summer PNA", 
+                   "~mean age + March SST + winter downwelling+
+                   Fall meridional winds+ Summer PNA"
+                   ))
+
+################################################
+############# Adding Dsquared ################## 
+
+dsqrd_full=NULL
+dsAICc_full=NULL
+
+ for(i in 1:length(glm_list_full)){
+  dsqrd_full[i]= Dsquared(glm_list_full[[i]])
+  dsAICc_full[i]=AICc(glm_list_full[[i]])
+  print(dsqrd_full[i])
+  print(dsAICc_full[i])
+ }
+
+dsqrd_full <- as.data.frame(dsqrd_full)
+dsAICc_full <- as.data.frame(dsAICc_full)
+glmnumbs <- seq_along(1:10)
+dsqrd_tab_f <- dsqrd_full %>% 
+  mutate(AICc=dsAICc_full$dsAICc_full, ID=glmnumbs) %>% 
+  arrange(AICc)
+
+
+# Create data frame to format into table
+tab_01_f = data.frame(fullAICc) %>%
+  dplyr::select(
+    Modnames, LL, K, AICc, Delta_AICc, AICcWt
+  ) %>%
+  mutate(
+    ER = (max(AICcWt) / AICcWt) %>% round(3) %>% as.character()
+  ) %>%
+  mutate(
+    DE = (dsqrd_tab_f$dsqrd_full) %>% round(3) %>% as.character()
+  ) %>% 
+   mutate(LL= LL%>% round(3) %>% as.character(),
+          AICc= AICc%>% round(3) %>% as.character(),
+          AICcWt=AICcWt %>% round(4) %>% as.character(),
+          Delta_AICc=Delta_AICc%>% round(3) %>% as.character()) %>% 
+  rename(
+    Models = Modnames,
+    # We can include LaTeX math notation in column names
+    # Because \ is a special character we need two \\
+    '$\\Delta$AICc' = Delta_AICc,
+    'AICc wt.' = AICcWt,
+    '$D^{2}$' = DE
+  )
+
+
+pander::pander(tab_01_f)
+
+equatiomatic::extract_eq(glm_full_a)
+
+pander::pander(summary(glm_full_a))
+
+# Relative importance of glm terms- relaimpo::calc.relimp()
+
+calc.relimp(glm_full_a, rela= TRUE) # Rela = the sum of the  terms scaled from 0 to 1 
+
+```
+
+### Western model results #####
+
+```{r WesternModelSel}
+
+data_W <- read.csv("DATA_v2/fulldata_W.csv",header = T)
+
+glm_list_W <- list(
+glm_W_1<-  glm(DOY_cum50~ SSB, data=data_W), 
+glm_W_2<-  glm(DOY_cum50~ MDM_area, data=data_W),
+glm_W_3<-  glm(DOY_cum50~ NCEP.SST.fa, 
+                  data=data_W),
+glm_W_4<-  glm(DOY_cum50~ NCEP.SST.wi, data=data_W),
+glm_W_5<-  glm(DOY_cum50~ NCEP.SST.sp, data=data_W), 
+glm_W_6<-  glm(DOY_cum50~ Upwell.wi, data=data_W),
+glm_W_7<-  glm(DOY_cum50~ a.NPGO.wi, data=data_W),
+glm_W_8<-  glm(DOY_cum50~ a.NPGO.su, data=data_W),
+
+glm_W_9<-  glm(DOY_cum50~ SSB + ICOADS.SST.apr.int+
+                  NCEP.SST.sp+Upwell.wi+a.NPGO.wi, data=data_W),
+
+glm_W_10<-  glm(DOY_cum50~ SSB + ICOADS.SST.apr.int+
+                  Upwell.wi+a.NPGO.su, data=data_W),
+
+glm_W_11<-  glm(DOY_cum50~ SSB + ICOADS.SST.apr.int+
+                  Upwell.wi+a.NPGO.wi, data=data_W),
+
+
+glm_W_12 <- glm(DOY_cum50~ NCEP.SST.sp+ NCEP.SST.wi+ ICOADS.SST.apr.int,
+                data=data_W), 
+
+
+glm_W_13 <- glm(DOY_cum50~ FWinput.total.t+ ICOADS.SST.apr.int,
+                data=data_W), 
+
+glm_W_14 <- glm(DOY_cum50~ MDM_area+FWinput.total.t+ ICOADS.SST.apr.int,
+                data=data_W), 
+
+glm_W_15 <- glm(DOY_cum50~ SSB+Mean_age+ NCEP.MerWind.wi+
+                  FWinput.total.t+ ICOADS.SST.apr.int,
+                data=data_W),
+
+glm_W_16 <- glm(DOY_cum50~ Mean_age+
+                  FWinput.total.t+ ICOADS.SST.apr.int,
+                data=data_W), 
+
+glm_W_17 <- glm(DOY_cum50~ MDM_area+Mean_age+
+                  FWinput.total.t+ ICOADS.SST.apr.int,
+                data=data_W),
+
+glm_W_18 <- glm(DOY_cum50~ Mean_age+ NCEP.MerWind.wi+
+                  FWinput.total.t+ ICOADS.SST.apr.int,
+                data=data_W),
+
+glm_W_19 <- glm(DOY_cum50~ Mean_age+ NCEP.MerWind.wi+
+                  FWinput.total.t+ ICOADS.SST.apr.int+
+                  Upwell.wi+NCEP.MerWind.fa+ a.PNA.su,
+                data=data_W),
+
+glm_W_20 <- glm(DOY_cum50~ Mean_age+
+                  FWinput.total.t+ ICOADS.SST.apr.int+
+                  Upwell.wi+NCEP.MerWind.fa+ a.PNA.su,
+                data=data_W),
+
+glm_W_21 <- glm(DOY_cum50~ Mean_age+
+                  FWinput.total.t+a.PNA.su,
+                data=data_W),## best model
+
+glm_W_22 <- glm(DOY_cum50~ Mean_age+
+                  FWinput.total.t+a.MEI.v2.su,
+                data=data_W),
+
+glm_W_23 <- glm(DOY_cum50~ Mean_age, data=data_W),
+
+glm_W_24 <- glm(DOY_cum50~ 
+                  FWinput.total.t+a.PNA.su,
+                data=data_W)
+
+)
+
+
+aictab(glm_list_W)
+WAICc <- aictab(glm_list_W, modnames = c(
+"~SSB",
+"~Mile-days of Milt",
+"~Fall offshore SST",
+"~Winter offshore SST",
+"~Spring offshore SST",
+"~winter downwelling",
+"~Winter NPGO",
+"~Summer NPGO",
+"~SSB + April SST + Spring offshore SST + winter downwelling + Winter NPGO",
+"~SSB + April SST + winter downwelling+ Summer NPGO",
+"~SSB + April SST + winter downwelling + Winter NPGO",
+"~Spring offshore SST+ Winter offshore SST + April SST",
+"~modeled freshwater input+ April SST",
+"~Mile-days of Milt + modeled freshwater input+ April SST",
+"~SSB+ mean age + Winter meridional winds + modeled freshwater input + April SST",
+"~mean age + modeled freshwater input+ April SST ",
+"~Mile-days of Milt + mean age + modeled freshwater input + April SST",
+"~mean age + Winter meridional winds + modeled freshwater input + April SST",
+"~mean age + Winter meridional winds + modeled freshwater input + April SST + winter downwelling + Fall meridional winds + Summer PNA",
+"~mean age + modeled freshwater input + April SST + winter downwelling + Fall meridional winds + Summer PNA",
+"~mean age + modeled freshwater input + Summer PNA",
+"~mean age + modeled freshwater input + Summer MEI.v2",
+"~mean age",
+"~modeled freshwater input+Summer PNA"))
+
+################################################
+############# Adding Dsquared ################## 
+
+dsqrd_w=NULL
+dsAICc_w=NULL
+
+ for(i in 1:length(glm_list_W)){
+  dsqrd_w[i]= Dsquared(glm_list_W[[i]])
+  dsAICc_w[i]=AICc(glm_list_W[[i]])
+  print(dsqrd_w[i])
+  print(dsAICc_w[i])
+ }
+
+dsqrd_w <- as.data.frame(dsqrd_w)
+dsAICc_w <- as.data.frame(dsAICc_w)
+glmnumbs <- seq_along(1:24)
+dsqrd_tab_w <- dsqrd_w %>% 
+  mutate(AICc=dsAICc_w$dsAICc_w, ID=glmnumbs) %>% 
+  arrange(AICc)
+
+# Create data frame to format into table
+tab_02 = data.frame(WAICc) %>%
+  dplyr::select(
+    Modnames, LL, K, AICc, Delta_AICc, AICcWt
+  ) %>%
+  mutate(
+    ER = (max(AICcWt) / AICcWt) %>% round(3) %>% as.character()
+  ) %>%
+  mutate(
+    DE = (dsqrd_tab_w$dsqrd_w) %>% round(3) %>% as.character()
+  ) %>%
+  mutate(LL= LL%>% round(3) %>% as.character(),
+          AICc= AICc%>% round(3) %>% as.character(),
+          AICcWt=AICcWt %>% round(4) %>% as.character(),
+          Delta_AICc=Delta_AICc%>% round(3) %>% as.character()) %>%
+  rename(
+    Models = Modnames,
+    # We can include LaTeX math notation in column names
+    # Because \ is a special character we need two \\
+    '$\\Delta$AICc' = Delta_AICc,
+    'AICc wt.' = AICcWt,
+    '$D^{2}$' = DE
+  )
+
+
+
+pander::pander(tab_02)
+
+
+#diagnostics
+#pseudo R2
+1-(glm_W_21$deviance/glm_W_21$null.deviance)
+#explained deviance (pseudo R2) in %
+100*(glm_W_21$null.deviance-glm_W_21$deviance)/glm_W_21$null.deviance
+#Dsquared() function for deviance explained in ZUUR
+Dsquared(glm_W_21) 
+
+summary(glm_W_21)
+pander::pander(summary(glm_W_21))
+
+visreg(glm_W_21)
+
+# Relative importance of glm terms- relaimpo::calc.relimp()
+
+calc.relimp(glm_W_21, rela= TRUE) # Rela = the sum of the  terms scaled from 0 to 1 
+
+```
+
+### Eastern model results #####
+
+```{r EasternModelSel}
+
+data_E <- read.csv("DATA_v2/fulldata_E.csv", header = T)
+
+glm_list_E <- list(
+glm_E_1<-  glm(DOY_cum50~ SSB, data=data_E), #1
+glm_E_2<-  glm(DOY_cum50~ MDM_area, data=data_E), #2 
+glm_E_3<-  glm(DOY_cum50~ ICOADS.SST.apr.int, data=data_E), #3
+glm_E_4<-  glm(DOY_cum50~ NCEP.SST.fa, 
+                  data=data_E),#4
+glm_E_5<-  glm(DOY_cum50~ NCEP.SST.wi, data=data_E),#5
+glm_E_6<-  glm(DOY_cum50~ NCEP.SST.sp, data=data_E), #6
+glm_E_7<-  glm(DOY_cum50~ Upwell.wi, data=data_E),#7
+glm_E_8<-  glm(DOY_cum50~ a.PNA.su, data=data_E),#8
+glm_E_9<-  glm(DOY_cum50~ a.NPGO.su, data=data_E),#9
+glm_E_10<-  glm(DOY_cum50~ NCEP.MerWind.wi, data=data_E),#10 
+glm_E_11<-  glm(DOY_cum50~ NCEP.MerWind.fa, data=data_E),#11
+glm_E_12<-  glm(DOY_cum50~  NCEP.ZonWind.wi, data=data_E),#12
+glm_E_13<-  glm(DOY_cum50~  NCEP.ZonWind.sp, data=data_E),#13
+
+glm_E_14<-  glm(DOY_cum50~ SSB + 
+                 NCEP.ZonWind.wi, data=data_E),#14  ###
+
+glm_E_15<-  glm(DOY_cum50~ SSB + ICOADS.SST.apr.int, data=data_E),#15
+
+glm_E_16<-  glm(DOY_cum50~ SSB + NCEP.MerWind.wi, data=data_E),#16 
+
+glm_E_17<-  glm(DOY_cum50~ SSB + NCEP.MerWind.fa, data=data_E),#17 
+
+glm_E_18<-  glm(DOY_cum50~ SSB + NCEP.ZonWind.sp, data=data_E),#18 
+
+glm_E_19<-  glm(DOY_cum50~ SSB + ICOADS.SST.apr.int+
+                 NCEP.ZonWind.wi, data=data_E),
+glm_E_20 <- glm(DOY_cum50~ FWinput.total.t,data=data_E),
+
+glm_E_21 <- glm(DOY_cum50~ SSB + NCEP.MerWind.wi +NCEP.ZonWind.wi+Upwell.wi+
+                  a.PNA.su, data=data_E),
+
+glm_E_22 <- glm(DOY_cum50~ MDM_area + NCEP.MerWind.wi +Upwell.wi+
+                  a.PNA.su, data=data_E), ## BEST MODEL 
+
+glm_E_23 <- glm(DOY_cum50~ SSB + NCEP.MerWind.wi +Upwell.wi, data=data_E),
+
+glm_E_24 <- glm(DOY_cum50~ Mean_age+NCEP.MerWind.wi +Upwell.wi,
+                data=data_E),
+
+glm_E_25 <- glm(DOY_cum50~ Mean_age+
+                  FWinput.total.t+ ICOADS.SST.apr.int+
+                  Upwell.wi+NCEP.MerWind.fa+ a.PNA.su,
+                data=data_E),
+
+glm_E_26 <- glm(DOY_cum50~ MDM_area + Mean_age+
+                  NCEP.MerWind.wi+ Upwell.wi, data=data_E),
+
+glm_E_27 <- glm(DOY_cum50~ MDM_area + Mean_age+
+                  ICOADS.SST.apr.int+ 
+                  NCEP.MerWind.wi+ Upwell.wi+a.PNA.su, data=data_E),
+
+glm_E_28 <- glm(DOY_cum50~ MDM_area + NCEP.MerWind.wi +Upwell.wi+
+                  a.PNA.wi, data=data_E),
+
+glm_E_29 <- glm(DOY_cum50~ MDM_area + NCEP.MerWind.fa +Upwell.wi+
+                  a.PNA.su, data=data_E)
+
+)
+
+
+aictab(glm_list_E)
+Dsquared(glm_E_22) #0.49468
+#model weight: 0.56 with delta AICc 0 next model 3.42
+visreg(glm_E_22)
+
+summary(glm_E_22)
+
+#Best model Recap
+#glm_E_22 <- glm(DOY_cum50~ MDM_area + NCEP.MerWind.wi +Upwell.wi+
+#                  a.PNA.su, data=data_E)
+
+
+aictab(glm_list_E)
+EAICc <- aictab(glm_list_E, modnames = c(
+"~SSB",
+"~Mile-days of Milt",
+"~April SST",
+"~Fall offshore SST",
+"~Winter offshore SST",
+"~Spring offshore SST",
+"~Winter downwelling",
+"~Summer PNA",
+"~Summer NPGO",
+"~ Winter meridional wind",
+"~Fall meridional wind",
+"~Winter zonal wind",
+"~Spring zonal wind",
+"~SSB + Winter zonal wind",
+"~SSB + April SST",
+"~SSB + Winter meridional wind ",
+"~SSB + Fall meridional wind ",
+"~SSB + Spring zonal wind ",
+"~SSB + April SST + Winter zonal wind",
+"~modeled freshwater input",
+"~SSB + Winter meridional winds + Winter zonal wind + Winter downwelling + Summer PNA",
+"~mile-days of milt + Winter meridional winds + Winter downwelling + Summer PNA",
+"~SSB + Winter meridional winds + Winter downwelling",
+"~mean age + Winter meridional winds + Winter downwelling",
+"~mean age + FWinput.total.t + April SST + Winter downwelling + Fall meridional winds + Summer PNA",
+"~mile-days of milt + mean age + Winter meridional winds + Winter downwelling",
+"~mile-days of milt + mean age+ICOADS.SST.apr.int+ Winter meridional winds + Winter downwelling + Summer PNA",
+"~mile-days of milt + Winter meridional winds + Winter downwelling + Winter PNA",
+"~mile-days of milt + Fall meridional winds + Winter downwelling + Summer PNA"))
+
+
+dsqrd_e=NULL
+dsAICc_e=NULL
+
+ for(i in 1:length(glm_list_E)){
+  dsqrd_e[i]= Dsquared(glm_list_E[[i]])
+  dsAICc_e[i]=AICc(glm_list_E[[i]])
+  print(dsqrd_e[i])
+  print(dsAICc_e[i])
+ }
+
+dsqrd_e <- as.data.frame(dsqrd_e)
+dsAICc_e <- as.data.frame(dsAICc_e)
+glmnumbs <- seq_along(1:29)
+dsqrd_tab_e <- dsqrd_e %>% 
+  mutate(AICc=dsAICc_e$dsAICc_e, ID=glmnumbs) %>% 
+  arrange(AICc)
+
+# Create data frame to format into table
+tab_03 = data.frame(EAICc) %>%
+  dplyr::select(
+    Modnames, LL, K, AICc, Delta_AICc, AICcWt
+  ) %>%
+  mutate(
+    ER = (max(AICcWt) / AICcWt) %>% round(3) %>% as.character()
+  ) %>%
+  mutate(
+    DE = (dsqrd_tab_e$dsqrd_e) %>% round(3) %>% as.character()
+  ) %>%
+  mutate(LL= LL%>% round(3) %>% as.character(),
+          AICc= AICc%>% round(3) %>% as.character(),
+          AICcWt=AICcWt %>% round(4) %>% as.character(),
+          Delta_AICc=Delta_AICc%>% round(3) %>% as.character()) %>%
+  rename(
+    Models = Modnames,
+    # We can include LaTeX math notation in column names
+    # Because \ is a special character we need two \\
+    '$\\Delta$AICc' = Delta_AICc,
+    'AICc wt.' = AICcWt,
+    '$D^{2}$' = DE
+  )
+
+
+pander::pander(tab_03)
+
+
+#diagnostics
+#pseudo R2
+1-(glm_E_22$deviance/glm_E_22$null.deviance)
+#explained deviance (pseudo R2) in %
+100*(glm_E_22$null.deviance-glm_E_22$deviance)/glm_E_22$null.deviance
+#Dsquared() function for deviance explained in ZUUR
+Dsquared(glm_E_22) #0.4946863
+
+
+summary(glm_E_22)
+pander::pander(summary(glm_E_22))
+
+# Relative importance of glm terms- relaimpo::calc.relimp()
+
+calc.relimp(glm_E_22, rela= TRUE) # Rela = the sum of the  terms scaled from 0 to 1 
+
+```
+
+
+### PWS Western Eastern model results #####
+
+
+```{r WE_data_model_Sel}
+
+dataPWS <- read_csv(file="DATA_v2/fulldata_PWS.csv")
+dataPWS$RS_SSB_10 <- as_factor(dataPWS$RS_SSB_10)
+dataPWS$RS_SSB_5 <- as_factor(dataPWS$RS_SSB_5)
+dataPWS$RS_SP_10 <- as_factor(dataPWS$RS_SP_10)
+dataPWS$RS_SP_5 <- as_factor(dataPWS$RS_SP_5)
+dataPWS$Region <- as_factor(dataPWS$Region)
+
+dataPWS_v2 <- dataPWS %>% drop_na() 
+dataPWS_v2$Region <- factor(dataPWS_v2$Region, levels = rev(levels(dataPWS_v2$Region)))
+
+
+#Second interaction of model selection
+
+glm_list1 <- list(
+  glm_1_1 <- glm(DOY_cum50~ MDM_area+ NCEP.MerWind.wi +Upwell.wi+
+                  a.PNA.su, data=dataPWS_v2),
+  
+  glm_1_2 <- glm(DOY_cum50~ Mean_age+
+                  FWinput.total.t+a.PNA.su,
+                data=dataPWS_v2),
+  
+  glm_1_3 <- glm(DOY_cum50~ MDM_area*Region +Mean_age*Region+ 
+                    NCEP.MerWind.wi +Upwell.wi+
+                    FWinput.total.t*Region+
+                    a.PNA.su,
+                data=dataPWS_v2),
+  
+  glm_1_4 <- glm(DOY_cum50~ Region+MDM_area*Region +Mean_age*Region+ 
+                    NCEP.MerWind.wi +Upwell.wi+
+                    FWinput.total.t+
+                    a.PNA.su,
+                data=dataPWS_v2), ##
+  
+  glm_1_5 <- glm(DOY_cum50~ Region+MDM_area*Region*RS_SSB_10 +Mean_age*Region+ 
+                    NCEP.MerWind.wi +Upwell.wi+
+                    FWinput.total.t+
+                    a.PNA.su,
+                data=dataPWS_v2),
+  
+  glm_1_6 <- glm(DOY_cum50~ Region+ RS_SSB_10+MDM_area*RS_SSB_10+
+                    Mean_age*RS_SSB_10+ 
+                    NCEP.MerWind.wi +Upwell.wi+
+                    FWinput.total.t+
+                    a.PNA.su,
+                data=dataPWS_v2),
+  
+  glm_1_7 <- glm(DOY_cum50~ RS_SSB_10+
+                    Mean_age*RS_SSB_10+ 
+                    NCEP.MerWind.wi +Upwell.wi+
+                    FWinput.total.t+
+                    a.PNA.su,
+                data=dataPWS_v2),
+  
+  glm_1_8 <- glm(DOY_cum50~ 
+                  FWinput.total.t+a.PNA.su,
+                data=dataPWS_v2),
+  
+  glm_1_9 <- glm(DOY_cum50~ 
+                  FWinput.total.t*RS_SSB_10,
+                data=dataPWS_v2),
+  
+  glm_1_10 <- glm(DOY_cum50~
+                     Mean_age*RS_SSB_10,
+                data=dataPWS_v2),
+  
+  glm_1_11 <- glm(DOY_cum50~ Region+MDM_area*Region + Mean_age*RS_SSB_10+ 
+                    NCEP.MerWind.wi +Upwell.wi+
+                    FWinput.total.t+
+                    a.PNA.su,
+                data=dataPWS_v2),
+
+  glm_1_12 <- glm(DOY_cum50~ Region+MDM_area*Region +
+                    NCEP.MerWind.wi +Upwell.wi+
+                    FWinput.total.t*Region+
+                    a.PNA.su,
+                data=dataPWS_v2),
+  
+  glm_WE_13 <- glm(DOY_cum50~ Region+MDM_area*Region +Mean_age*Region+ 
+                    NCEP.MerWind.wi + ICOADS.SST.apr.int+ICOADS.SST.mar.intp +Upwell.wi+
+                    FWinput.total.t+
+                    a.PNA.su,
+                data=dataPWS),
+  
+  glm_WE_14 <- glm(DOY_cum50~ Region+MDM_area*Region +Mean_age*Region+ 
+                    NCEP.MerWind.wi + ICOADS.SST.apr.int +Upwell.wi+
+                    FWinput.total.t+
+                    a.PNA.su,
+                data=dataPWS),
+  
+   glm_WE_15 <- glm(DOY_cum50~ Region+MDM_area*Region +Mean_age*Region+ 
+                    NCEP.MerWind.wi + ICOADS.SST.mar.intp +Upwell.wi+
+                    FWinput.total.t+
+                    a.PNA.su,
+                data=dataPWS),
+  
+  glm_1_0 <- glm(DOY_cum50~1, data=dataPWS_v2),
+  glm_1_17 <- glm(DOY_cum50~ Region+MDM_area*Region*RS_SSB_5 +Mean_age*Region+ 
+                    NCEP.MerWind.wi +Upwell.wi+
+                    FWinput.total.t+
+                    a.PNA.su,
+                data=dataPWS_v2),
+  
+  glm_1_18 <- glm(DOY_cum50~ Region+MDM_area*Region*RS_SP_10 +Mean_age*Region+ 
+                    NCEP.MerWind.wi +Upwell.wi+
+                    FWinput.total.t+
+                    a.PNA.su,
+                data=dataPWS_v2),
+  
+  glm_1_19 <- glm(DOY_cum50~ Region+MDM_area*Region*RS_SP_5 +Mean_age*Region+ 
+                    NCEP.MerWind.wi +Upwell.wi+
+                    FWinput.total.t+
+                    a.PNA.su,
+                data=dataPWS_v2)
+)
+
+
+aictab(glm_list1)
+
+aictab(glm_list1)
+WEAICc <- aictab(glm_list1, modnames = c(
+"~mile-days of milt + Winter meridional wind + Winter downwelling + Summer PNA",
+"~mean age + modeled freshwater input + Summer PNA","~mile-days of milt*Region + mean age*region + Winter meridional winds + Winter downwelling + modeled freshwater input*Region+ Summer PNA",
+"~region + mile-days of milt *region + mean age*Region + Winter meridional winds + Winter downwelling + modeled freshwater input + Summer PNA",
+"~region + mile-days of milt*region*SSB 10-year regime shift +mean age*region + Winter meridional winds + Winter downwelling + modeled freshwater input + Summer PNA",
+"~region+ SSB 10-year regime shift + mile-days of milt * SSB 10-year regime shift + mean age* SSB 10-year regime shift + Winter meridional winds + Winter downwelling + modeled freshwater input + Summer PNA",
+"~SSB 10-year regime shift + mean age* SSB 10-year regime shift + Winter meridional winds + Winter downwelling + modeled freshwater input + Summer PNA",
+"~modeled freshwater input",
+"~modeled freshwater input* SSB 10-year regime shift",
+"~mean age*SSB 10-year regime shift",
+"~region + mile-days of milt *region + mean age * SSB 10-year regime shift + Winter meridional winds + Winter downwelling + modeled freshwater input + Summer PNA",
+"~region + mile-days of milt *region + Winter meridional winds + Winter downwelling + modeled freshwater input + Summer PNA",
+"~region + mile-days of milt *region + mean age*region+ Winter meridional winds+ April SST + March SST + Winter downwelling + modeled freshwater input + Summer PNA",
+"~region + mile-days of milt *region + mean age*region+ Winter meridional winds+ April SST + Winter downwelling + modeled freshwater input + Summer PNA",
+"~region + mile-days of milt *region + mean age*region+ Winter meridional winds+ March SST + Winter downwelling + modeled freshwater input + Summer PNA",
+"~null model",
+"~region+ SSB 5-year regime shift + mile-days of milt * SSB 5-year regime shift + mean age* SSB 5-year regime shift + Winter meridional winds + Winter downwelling + modeled freshwater input + Summer PNA",
+"~region+ Surplus production 10-year regime shift + mile-days of milt * Surplus production 10-year regime shift + mean age* Surplus production 10-year regime shift + Winter meridional winds + Winter downwelling + modeled freshwater input + Summer PNA",
+"~region+ Surplus production 5-year regime shift + mile-days of milt * Surplus production 5-year regime shift + mean age* Surplus production 5-year regime shift + Winter meridional winds + Winter downwelling + modeled freshwater input + Summer PNA"
+))
+
+dsqrd=NULL
+dsAICc=NULL
+
+ for(i in 1:length(glm_list1)){
+  dsqrd[i]= Dsquared(glm_list1[[i]])
+  dsAICc[i]=AICc(glm_list1[[i]])
+  print(dsqrd[i])
+  print(dsAICc[i])
+ }
+
+dsqrd <- as.data.frame(dsqrd)
+dsAICc <- as.data.frame(dsAICc)
+glmnumbs <- seq_along(1:19)
+dsqrd_tab <- dsqrd %>% 
+  mutate(AICc=dsAICc$dsAICc, ID=glmnumbs) %>% 
+  arrange(AICc)
+  
+#pander::pander(dsqrd)
+
+# Create data frame to format into table
+tab_04 = data.frame(WEAICc) %>%
+  dplyr::select(
+    Modnames, LL, K, AICc, Delta_AICc, AICcWt
+  ) %>%
+  mutate(
+    ER = (max(AICcWt) / AICcWt) %>% round(3) %>% as.character()
+  ) %>% 
+  mutate(
+    DE = (dsqrd_tab$dsqrd)%>% round(3) %>% as.character()
+  ) %>%
+  mutate(LL= LL%>% round(3) %>% as.character(),
+          AICc= AICc%>% round(3) %>% as.character(),
+          AICcWt=AICcWt %>% round(4) %>% as.character(),
+          Delta_AICc=Delta_AICc%>% round(3) %>% as.character()) %>%
+  rename(
+    Models = Modnames,
+    # We can include LaTeX math notation in column names
+    # Because \ is a special character we need two \\
+    '$\\Delta$AICc' = Delta_AICc,
+    'AICc wt.' = AICcWt,
+    '$D^{2}$' = DE
+  )
+
+
+pander::pander(tab_04)
+
+
+
+summary(glm_1_4)
+pander::pander(summary(glm_1_4))
+
+
+
+anova(glm_1_4, test="Chisq")
+
+# Relative importance of glm terms- relaimpo::calc.relimp()
+
+calc.relimp(glm_1_4, rela= TRUE) # Rela = the sum of the  terms scaled from 0 to 1 
+
+```
+
+
+## Model diagnostics 
+ - Collinearity: measured by the variance inflation factor (VIF), which is: 
+    $$VIF = \frac{1}{1- R^{2}}$$ 
+    
+    
+```{r model_diag}
+# Distribution (Packages MASS and fitdistrplus)
+# Cullen and Frey graph
+descdist(dataPWS_v2$DOY_cum50, boot=1000)
+plotdist(dataPWS_v2$DOY_cum50)
+#discrete since we are dealing with day. 
+#the distribution is moderately skewed. 
+
+```
+```{r model_diag_PWS}
+
+lm_full_a_PWS <-  lm(DOY_cum50~ Mean_age+ ICOADS.SST.apr.wmean + Upwell.wi+
+                     NCEP.MerWind.fa+ a.PNA.su, data=PWSdata)
+ols_coll_diag(lm_full_a_PWS)
+
+ols_correlations(lm_full_a_PWS)
+
+ols_test_breusch_pagan(lm_full_a_PWS, rhs=T, multiple=T) #heteroscedasticity test
+
+
+```
+
+
+```{r model_diag_W}
+
+lm_W_21 <- lm(DOY_cum50~ Mean_age+
+                  FWinput.total.t+a.PNA.su,
+                data=data_W)
+
+
+ols_coll_diag(lm_W_21)
+
+ols_correlations(lm_W_21)
+
+ols_test_breusch_pagan(lm_W_21, rhs=T, multiple=T) #heteroscedasticity test
+
+
+```
+
+
+```{r model_diag_E}
+
+lm_E_22 <- lm(DOY_cum50~ MDM_area + NCEP.MerWind.wi +Upwell.wi+
+                  a.PNA.su, data=data_E)
+
+ols_coll_diag(lm_E_22)
+
+ols_correlations(lm_E_22)
+
+ols_test_breusch_pagan(lm_E_22, rhs=T, multiple=T) #heteroscedasticity test
+
+```
+
+
+
+
+
+
