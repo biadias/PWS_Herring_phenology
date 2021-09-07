@@ -7,17 +7,16 @@ output:
   word_document: default
   html_document:
     df_print: paged
-csl: C:/Users/Beatriz/Dropbox/A_UW/Herring/PWS_herring/Citations/canadian-journal-of-fisheries-and-aquatic-sciences.csl
+csl: C:/Users/Bia/Dropbox/A_UW/A_PWS_herring_spawningtimming_PAPER/PWS_Herring_phenology/Citations/styles/dependent/marine-ecology-progress-series.csl
 always_allow_html: yes
-bibliography: C:/Users/Beatriz/Dropbox/A_UW/Herring/PWS_herring/Citations/PWS_refs_v1.bib
+bibliography: C:/Users/Bia/Dropbox/A_UW/A_PWS_herring_spawningtimming_PAPER/PWS_Herring_phenology/Citations/PWS_refs_v1.bib
 ---
 AUTHORS: Dias, B.S., McGowan, D., Campbell, R., Branch, T.
 
 AFFILIATIONS: School of Aquatic and Fishery Sciences, University of Washington
 
-E-MAIL OF CORRESPONDENCE AUTHOR: biadias@uw.edu
+E-MAIL OF CORRESPONDENCE AUTHOR: bdossantosdias@alaska..edu
 
-## Packages
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -137,25 +136,26 @@ PWSdata <- read.csv("DATA_v2/fulldata.csv")
 
 glm_list_full <- list(
 glm_full <-  glm(DOY_cum50~ SSB+Mean_age+ ICOADS.SST.apr.wmean + Upwell.wi+
-                   NCEP.MerWind.fa+ a.PNA.su, data=PWSdata), #1
+                   NCEP.MerWind.fa+ a.PNA.su, data=PWSdata), 
 
 glm_full_a <-  glm(DOY_cum50~ Mean_age+ ICOADS.SST.apr.wmean + Upwell.wi+
-                     NCEP.MerWind.fa+ a.PNA.su, data=PWSdata), #2 #best model
+                     NCEP.MerWind.fa+ a.PNA.su, data=PWSdata), 
 
 glm_full_b<-  glm(DOY_cum50~ Mean_age+ ICOADS.SST.apr.wmean + Upwell.wi+ 
-                    a.PNA.su, data=PWSdata), #3
+                    a.PNA.su, data=PWSdata),
 glm_full_c<-  glm(DOY_cum50~ ICOADS.SST.apr.wmean + Upwell.wi+ a.PNA.su, 
-                  data=PWSdata),#4
-glm_full_d<-  glm(DOY_cum50~ SSB, data=PWSdata),#5
-glm_full_e<-  glm(DOY_cum50~ Mean_age, data=PWSdata), #6
-glm_full_f<-  glm(DOY_cum50~ ICOADS.SST.apr.wmean, data=PWSdata), #7
-glm_full_g<-  glm(DOY_cum50~ Upwell.wi, data=PWSdata),#8
-glm_full_h<-  glm(DOY_cum50~ a.PNA.su, data=PWSdata),#9
+                  data=PWSdata),
+glm_full_d<-  glm(DOY_cum50~ SSB, data=PWSdata),
+glm_full_e<-  glm(DOY_cum50~ Mean_age, data=PWSdata),
+glm_full_f<-  glm(DOY_cum50~ ICOADS.SST.apr.wmean, data=PWSdata), 
+glm_full_g<-  glm(DOY_cum50~ Upwell.wi, data=PWSdata),
+glm_full_h<-  glm(DOY_cum50~ a.PNA.su, data=PWSdata),
 glm_full_i <-  glm(DOY_cum50~ Mean_age+ ICOADS.SST.mar.wmean + Upwell.wi+
-                     NCEP.MerWind.fa+ a.PNA.su, data=PWSdata)) #10
+                     NCEP.MerWind.fa+ a.PNA.su, data=PWSdata)) 
+```
 
+```{r fullModel2, echo=FALSE}
 
-aictab(glm_list_full)
 
 
 fullAICc <- aictab(glm_list_full, modnames = c("~SSB + mean age + April SST + winter downwelling+
@@ -182,8 +182,6 @@ dsAICc_full=NULL
  for(i in 1:length(glm_list_full)){
   dsqrd_full[i]= Dsquared(glm_list_full[[i]])
   dsAICc_full[i]=AICc(glm_list_full[[i]])
-  print(dsqrd_full[i])
-  print(dsAICc_full[i])
  }
 
 dsqrd_full <- as.data.frame(dsqrd_full)
@@ -221,11 +219,6 @@ tab_01_f = data.frame(fullAICc) %>%
 
 pander::pander(tab_01_f)
 
-equatiomatic::extract_eq(glm_full_a)
-
-pander::pander(summary(glm_full_a))
-
-# Relative importance of glm terms- relaimpo::calc.relimp()
 
 calc.relimp(glm_full_a, rela= TRUE) # Rela = the sum of the  terms scaled from 0 to 1 
 
@@ -310,8 +303,12 @@ glm_W_24 <- glm(DOY_cum50~
 
 )
 
+```
 
-aictab(glm_list_W)
+```{r WesternModelSel2, echo=FALSE}
+
+
+
 WAICc <- aictab(glm_list_W, modnames = c(
 "~SSB",
 "~Mile-days of Milt",
@@ -347,8 +344,6 @@ dsAICc_w=NULL
  for(i in 1:length(glm_list_W)){
   dsqrd_w[i]= Dsquared(glm_list_W[[i]])
   dsAICc_w[i]=AICc(glm_list_W[[i]])
-  print(dsqrd_w[i])
-  print(dsAICc_w[i])
  }
 
 dsqrd_w <- as.data.frame(dsqrd_w)
@@ -388,19 +383,6 @@ pander::pander(tab_02)
 
 
 #diagnostics
-#pseudo R2
-1-(glm_W_21$deviance/glm_W_21$null.deviance)
-#explained deviance (pseudo R2) in %
-100*(glm_W_21$null.deviance-glm_W_21$deviance)/glm_W_21$null.deviance
-#Dsquared() function for deviance explained in ZUUR
-Dsquared(glm_W_21) 
-
-summary(glm_W_21)
-pander::pander(summary(glm_W_21))
-
-visreg(glm_W_21)
-
-# Relative importance of glm terms- relaimpo::calc.relimp()
 
 calc.relimp(glm_W_21, rela= TRUE) # Rela = the sum of the  terms scaled from 0 to 1 
 
@@ -413,31 +395,31 @@ calc.relimp(glm_W_21, rela= TRUE) # Rela = the sum of the  terms scaled from 0 t
 data_E <- read.csv("DATA_v2/fulldata_E.csv", header = T)
 
 glm_list_E <- list(
-glm_E_1<-  glm(DOY_cum50~ SSB, data=data_E), #1
-glm_E_2<-  glm(DOY_cum50~ MDM_area, data=data_E), #2 
-glm_E_3<-  glm(DOY_cum50~ ICOADS.SST.apr.int, data=data_E), #3
+glm_E_1<-  glm(DOY_cum50~ SSB, data=data_E), 
+glm_E_2<-  glm(DOY_cum50~ MDM_area, data=data_E),  
+glm_E_3<-  glm(DOY_cum50~ ICOADS.SST.apr.int, data=data_E), 
 glm_E_4<-  glm(DOY_cum50~ NCEP.SST.fa, 
-                  data=data_E),#4
-glm_E_5<-  glm(DOY_cum50~ NCEP.SST.wi, data=data_E),#5
-glm_E_6<-  glm(DOY_cum50~ NCEP.SST.sp, data=data_E), #6
-glm_E_7<-  glm(DOY_cum50~ Upwell.wi, data=data_E),#7
-glm_E_8<-  glm(DOY_cum50~ a.PNA.su, data=data_E),#8
-glm_E_9<-  glm(DOY_cum50~ a.NPGO.su, data=data_E),#9
-glm_E_10<-  glm(DOY_cum50~ NCEP.MerWind.wi, data=data_E),#10 
-glm_E_11<-  glm(DOY_cum50~ NCEP.MerWind.fa, data=data_E),#11
-glm_E_12<-  glm(DOY_cum50~  NCEP.ZonWind.wi, data=data_E),#12
-glm_E_13<-  glm(DOY_cum50~  NCEP.ZonWind.sp, data=data_E),#13
+                  data=data_E),
+glm_E_5<-  glm(DOY_cum50~ NCEP.SST.wi, data=data_E),
+glm_E_6<-  glm(DOY_cum50~ NCEP.SST.sp, data=data_E), 
+glm_E_7<-  glm(DOY_cum50~ Upwell.wi, data=data_E),
+glm_E_8<-  glm(DOY_cum50~ a.PNA.su, data=data_E),
+glm_E_9<-  glm(DOY_cum50~ a.NPGO.su, data=data_E),
+glm_E_10<-  glm(DOY_cum50~ NCEP.MerWind.wi, data=data_E),
+glm_E_11<-  glm(DOY_cum50~ NCEP.MerWind.fa, data=data_E),
+glm_E_12<-  glm(DOY_cum50~  NCEP.ZonWind.wi, data=data_E),
+glm_E_13<-  glm(DOY_cum50~  NCEP.ZonWind.sp, data=data_E),
 
 glm_E_14<-  glm(DOY_cum50~ SSB + 
-                 NCEP.ZonWind.wi, data=data_E),#14  ###
+                 NCEP.ZonWind.wi, data=data_E),
 
-glm_E_15<-  glm(DOY_cum50~ SSB + ICOADS.SST.apr.int, data=data_E),#15
+glm_E_15<-  glm(DOY_cum50~ SSB + ICOADS.SST.apr.int, data=data_E),
 
-glm_E_16<-  glm(DOY_cum50~ SSB + NCEP.MerWind.wi, data=data_E),#16 
+glm_E_16<-  glm(DOY_cum50~ SSB + NCEP.MerWind.wi, data=data_E),
 
-glm_E_17<-  glm(DOY_cum50~ SSB + NCEP.MerWind.fa, data=data_E),#17 
+glm_E_17<-  glm(DOY_cum50~ SSB + NCEP.MerWind.fa, data=data_E),
 
-glm_E_18<-  glm(DOY_cum50~ SSB + NCEP.ZonWind.sp, data=data_E),#18 
+glm_E_18<-  glm(DOY_cum50~ SSB + NCEP.ZonWind.sp, data=data_E),
 
 glm_E_19<-  glm(DOY_cum50~ SSB + ICOADS.SST.apr.int+
                  NCEP.ZonWind.wi, data=data_E),
@@ -447,7 +429,7 @@ glm_E_21 <- glm(DOY_cum50~ SSB + NCEP.MerWind.wi +NCEP.ZonWind.wi+Upwell.wi+
                   a.PNA.su, data=data_E),
 
 glm_E_22 <- glm(DOY_cum50~ MDM_area + NCEP.MerWind.wi +Upwell.wi+
-                  a.PNA.su, data=data_E), ## BEST MODEL 
+                  a.PNA.su, data=data_E), 
 
 glm_E_23 <- glm(DOY_cum50~ SSB + NCEP.MerWind.wi +Upwell.wi, data=data_E),
 
@@ -474,20 +456,10 @@ glm_E_29 <- glm(DOY_cum50~ MDM_area + NCEP.MerWind.fa +Upwell.wi+
 
 )
 
+```
 
-aictab(glm_list_E)
-Dsquared(glm_E_22) #0.49468
-#model weight: 0.56 with delta AICc 0 next model 3.42
-visreg(glm_E_22)
+```{r EasternModelSel2, echo=FALSE}
 
-summary(glm_E_22)
-
-#Best model Recap
-#glm_E_22 <- glm(DOY_cum50~ MDM_area + NCEP.MerWind.wi +Upwell.wi+
-#                  a.PNA.su, data=data_E)
-
-
-aictab(glm_list_E)
 EAICc <- aictab(glm_list_E, modnames = c(
 "~SSB",
 "~Mile-days of Milt",
@@ -526,8 +498,6 @@ dsAICc_e=NULL
  for(i in 1:length(glm_list_E)){
   dsqrd_e[i]= Dsquared(glm_list_E[[i]])
   dsAICc_e[i]=AICc(glm_list_E[[i]])
-  print(dsqrd_e[i])
-  print(dsAICc_e[i])
  }
 
 dsqrd_e <- as.data.frame(dsqrd_e)
@@ -566,17 +536,6 @@ pander::pander(tab_03)
 
 
 #diagnostics
-#pseudo R2
-1-(glm_E_22$deviance/glm_E_22$null.deviance)
-#explained deviance (pseudo R2) in %
-100*(glm_E_22$null.deviance-glm_E_22$deviance)/glm_E_22$null.deviance
-#Dsquared() function for deviance explained in ZUUR
-Dsquared(glm_E_22) #0.4946863
-
-
-summary(glm_E_22)
-pander::pander(summary(glm_E_22))
-
 # Relative importance of glm terms- relaimpo::calc.relimp()
 
 calc.relimp(glm_E_22, rela= TRUE) # Rela = the sum of the  terms scaled from 0 to 1 
@@ -704,10 +663,10 @@ glm_list1 <- list(
                 data=dataPWS_v2)
 )
 
+```
 
-aictab(glm_list1)
+```{r WE_data_model_Sel2, echo=FALSE}
 
-aictab(glm_list1)
 WEAICc <- aictab(glm_list1, modnames = c(
 "~mile-days of milt + Winter meridional wind + Winter downwelling + Summer PNA",
 "~mean age + modeled freshwater input + Summer PNA","~mile-days of milt*Region + mean age*region + Winter meridional winds + Winter downwelling + modeled freshwater input*Region+ Summer PNA",
@@ -776,14 +735,6 @@ tab_04 = data.frame(WEAICc) %>%
 pander::pander(tab_04)
 
 
-
-summary(glm_1_4)
-pander::pander(summary(glm_1_4))
-
-
-
-anova(glm_1_4, test="Chisq")
-
 # Relative importance of glm terms- relaimpo::calc.relimp()
 
 calc.relimp(glm_1_4, rela= TRUE) # Rela = the sum of the  terms scaled from 0 to 1 
@@ -805,6 +756,8 @@ plotdist(dataPWS_v2$DOY_cum50)
 #the distribution is moderately skewed. 
 
 ```
+
+
 ```{r model_diag_PWS}
 
 lm_full_a_PWS <-  lm(DOY_cum50~ Mean_age+ ICOADS.SST.apr.wmean + Upwell.wi+
