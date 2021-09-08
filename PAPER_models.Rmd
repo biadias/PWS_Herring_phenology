@@ -3,8 +3,8 @@ title: Influence of environmental and population factors on Prince William Sound
 author: "Bia Dias"
 date: "1/5/2021"
 output:
-  pdf_document: default
   word_document: default
+  pdf_document: default
   html_document:
     df_print: paged
 csl: C:/Users/Bia/Dropbox/A_UW/A_PWS_herring_spawningtimming_PAPER/PWS_Herring_phenology/Citations/styles/dependent/marine-ecology-progress-series.csl
