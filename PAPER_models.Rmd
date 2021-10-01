@@ -130,7 +130,7 @@ Dsquared <- function(model = NULL,
 
 ### PWS model results #####
 
-```{r fullModel}
+```{r fullModel, echo=FALSE}
 
 PWSdata <- read.csv("DATA_v2/fulldata.csv")
 
@@ -226,7 +226,7 @@ calc.relimp(glm_full_a, rela= TRUE) # Rela = the sum of the  terms scaled from 0
 
 ### Western model results #####
 
-```{r WesternModelSel}
+```{r WesternModelSel, echo=FALSE}
 
 data_W <- read.csv("DATA_v2/fulldata_W.csv",header = T)
 
@@ -390,7 +390,7 @@ calc.relimp(glm_W_21, rela= TRUE) # Rela = the sum of the  terms scaled from 0 t
 
 ### Eastern model results #####
 
-```{r EasternModelSel}
+```{r EasternModelSel, echo=FALSE}
 
 data_E <- read.csv("DATA_v2/fulldata_E.csv", header = T)
 
@@ -546,7 +546,7 @@ calc.relimp(glm_E_22, rela= TRUE) # Rela = the sum of the  terms scaled from 0 t
 ### PWS Western Eastern model results #####
 
 
-```{r WE_data_model_Sel}
+```{r WE_data_model_Sel, echo=FALSE}
 
 dataPWS <- read_csv(file="DATA_v2/fulldata_PWS.csv")
 dataPWS$RS_SSB_10 <- as_factor(dataPWS$RS_SSB_10)
@@ -747,58 +747,59 @@ calc.relimp(glm_1_4, rela= TRUE) # Rela = the sum of the  terms scaled from 0 to
     $$VIF = \frac{1}{1- R^{2}}$$ 
     
     
-```{r model_diag}
+```{r model_diag, echo=FALSE}
 # Distribution (Packages MASS and fitdistrplus)
 # Cullen and Frey graph
 descdist(dataPWS_v2$DOY_cum50, boot=1000)
-plotdist(dataPWS_v2$DOY_cum50)
+#plotdist(dataPWS_v2$DOY_cum50)
 #discrete since we are dealing with day. 
 #the distribution is moderately skewed. 
 
 ```
 
 
-```{r model_diag_PWS}
+```{r model_diag_PWS, echo=FALSE}
 
 lm_full_a_PWS <-  lm(DOY_cum50~ Mean_age+ ICOADS.SST.apr.wmean + Upwell.wi+
                      NCEP.MerWind.fa+ a.PNA.su, data=PWSdata)
-ols_coll_diag(lm_full_a_PWS)
 
-ols_correlations(lm_full_a_PWS)
+pander(ols_coll_diag(lm_full_a_PWS))
 
-ols_test_breusch_pagan(lm_full_a_PWS, rhs=T, multiple=T) #heteroscedasticity test
+#pander(ols_correlations(lm_full_a_PWS))
+
+#ols_test_breusch_pagan(lm_full_a_PWS, rhs=T, multiple=T) #heteroscedasticity test
 
 
 ```
 
 
-```{r model_diag_W}
+```{r model_diag_W, echo=FALSE}
 
 lm_W_21 <- lm(DOY_cum50~ Mean_age+
                   FWinput.total.t+a.PNA.su,
                 data=data_W)
 
 
-ols_coll_diag(lm_W_21)
+pander(ols_coll_diag(lm_W_21))
 
-ols_correlations(lm_W_21)
+#pander(ols_correlations(lm_W_21))
 
-ols_test_breusch_pagan(lm_W_21, rhs=T, multiple=T) #heteroscedasticity test
+#ols_test_breusch_pagan(lm_W_21, rhs=T, multiple=T) #heteroscedasticity test
 
 
 ```
 
 
-```{r model_diag_E}
+```{r model_diag_E, echo=FALSE}
 
 lm_E_22 <- lm(DOY_cum50~ MDM_area + NCEP.MerWind.wi +Upwell.wi+
                   a.PNA.su, data=data_E)
 
-ols_coll_diag(lm_E_22)
+pander(ols_coll_diag(lm_E_22))
 
-ols_correlations(lm_E_22)
+#pander(ols_correlations(lm_E_22))
 
-ols_test_breusch_pagan(lm_E_22, rhs=T, multiple=T) #heteroscedasticity test
+#ols_test_breusch_pagan(lm_E_22, rhs=T, multiple=T) #heteroscedasticity test
 
 ```
 
